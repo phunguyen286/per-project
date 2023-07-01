@@ -1,0 +1,117 @@
+<!-- beer_time.html -->
+{% extends "base.html" %}
+
+{% block content %}
+  <h1>Beer Time Schedule</h1>
+  <p>Welcome, {{ session['username'] }}!</p>
+
+  <table>
+    <tr>
+      <th>Location - Time</th>
+      <th>Votes</th>
+    </tr>
+    {% for key, value in votes.items() %}
+    <tr>
+      <td>{{ key }}</td>
+      <td id="{{ key|replace(' ', '-') }}">{{ value }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+
+  <h2>Cast Your Vote</h2>
+  <form id="vote-form">
+    <label for="location">Location:</label>
+    <select id="location">
+      <option value="Location 1">Location 1</option>
+      <option value="Location 2">Location 2</option>
+      <option value="Location 3">Location 3</option>
+    </select><br>
+    <label for="time">Time:</label>
+    <select id="time">
+      <option value="Time 1">Time 1</option>
+      <option value="Time 2">Time 2</option>
+      <option value="Time 3">Time 3</option>
+    </select><br>
+    <input type="submit" value="Vote">
+  </form>
+
+  <h2>Invite Users</h2>
+  <form action="{{ url_for('invite_users') }}" method="post">
+    <label for="users">Select Users:</label>
+    <select id="users" name="users" multiple>
+      {% for username, _ in users.items() %}
+      {% if username != session['username'] %}
+      <option value="{{ username }}">{{ username }}</option>
+      {% endif %}
+      {% endfor %}
+    </select>
+    <input type="submit" value="Invite">
+  </form>
+
+  <p><a href="{{ url_for('results') }}">View Results</a></p>
+  <p><a href="{{ url_for('logout') }}">Logout</a></p>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.3.1/socket.io.js"></script>
+  <script type="text/javascript">
+    var socket = io.connect();
+
+    // Function to handle vote submission
+    $('#vote-form').submit(function(event) {
+      event.preventDefault();
+      var selectedLocation = $('#location').val();
+      var selectedTime = $('#time').val();
+
+      $.ajax({
+        url: '/submit_vote',
+        type: 'POST',
+        data: {
+          selected_location: selectedLocation,
+          selected_time: selectedTime
+        },
+        success: function(response) {
+          if (response.success) {
+            // Vote submitted successfully
+            updateVotes(response.votes);
+          } else {
+            // Vote submission failed
+            console.log('Vote submission failed.');
+          }
+        },
+        error: function() {
+          console.log('Error occurred during vote submission.');
+        }
+      });
+    });
+
+    // Function to handle vote updates
+    socket.on('vote_update', function(votes) {
+      updateVotes(votes);
+    });
+
+    // Function to update the vote count in the table
+    function updateVotes(votes) {
+      for (var key in votes) {
+        var voteCount = votes[key];
+        $('#' + key.replace(' ', '-')).text(voteCount);
+      }
+    }
+
+    // Function to retrieve the updated vote counts using AJAX
+    function getVotes() {
+      $.ajax({
+        url: '/get_votes',
+        type: 'GET',
+        success: function(response) {
+          updateVotes(response);
+        },
+        error: function() {
+          console.log('Error occurred while retrieving vote counts.');
+        }
+      });
+    }
+
+    // Initial call to retrieve the vote counts
+    getVotes();
+  </script>
+{% endblock %}
